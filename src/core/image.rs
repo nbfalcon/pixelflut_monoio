@@ -26,7 +26,6 @@ pub fn blend_pixels(a: RGBAPixel, b: RGBAPixel) -> RGBAPixel {
     b
 }
 
-pub type Timestamp = u64;
 pub type Coord = u32;
 
 pub struct PixelflutImage {
@@ -35,21 +34,7 @@ pub struct PixelflutImage {
 
     // Two arrays of [height][width] (i.e. row-major)
     pixel_data: Box<[u32]>,
-    pixel_timestamps: Box<[Timestamp]>,
-}
-
-fn blit_pixels_ts(a: RGBAPixel, b: RGBAPixel, ts_a: Timestamp, ts_b: Timestamp) -> RGBAPixel {
-    let fst: RGBAPixel;
-    let snd: RGBAPixel;
-    if ts_a < ts_b {
-        fst = a;
-        snd = b;
-    } else {
-        fst = b;
-        snd = a;
-    }
-
-    blend_pixels(fst, snd)
+    pixels_dirty: Box<[bool]>, // FIXME: use a bitset when we have internet
 }
 
 impl PixelflutImage {
@@ -59,7 +44,7 @@ impl PixelflutImage {
             height,
             width,
             pixel_data: vec![0; total].into_boxed_slice(),
-            pixel_timestamps: vec![0; total].into_boxed_slice(),
+            pixels_dirty: vec![false; total].into_boxed_slice(),
         }
     }
 
@@ -72,33 +57,30 @@ impl PixelflutImage {
         (py as usize) * (self.width as usize) + (px as usize)
     }
 
-    pub fn set_pixel(&mut self, px: Coord, py: Coord, pixel: RGBAPixel, timestamp: Timestamp) {
+    // FIMXE: the alpha semantics are completely borked
+    pub fn set_pixel(&mut self, px: Coord, py: Coord, pixel: RGBAPixel) {
         let i = self.index(px, py);
-        self.pixel_data[i] = blit_pixels_ts(
-            RGBAPixel(self.pixel_data[i]),
-            pixel,
-            self.pixel_timestamps[i],
-            timestamp,
-        )
-        .0;
-        self.pixel_timestamps[i] = timestamp;
-    }
-
-    pub fn get_pixel2(&self, px: Coord, py: Coord) -> (RGBAPixel, Timestamp) {
-        let i = self.index(px, py);
-        (RGBAPixel(self.pixel_data[i]), self.pixel_timestamps[i])
+        self.pixel_data[i] = pixel.0;
+        self.pixels_dirty[i] = true;
     }
 
     pub fn get_pixel(&self, px: Coord, py: Coord) -> RGBAPixel {
-        self.get_pixel2(px, py).0
+        let i = self.index(px, py);
+        RGBAPixel(self.pixel_data[i])
     }
 
     pub fn combine_with(&mut self, other: &PixelflutImage) {
         assert!(other.width == self.width && other.height == self.height);
-        for py in 0..self.height {
-            for px in 0..self.width {
-                let (pixel, timestamp) = self.get_pixel2(px, py);
-                self.set_pixel(px, py, pixel, timestamp);
+        assert!(other.pixel_data.len() == self.pixel_data.len());
+
+        // FIXME: benchmark dis. Maybe we should just manually use SIMD and get infinite PERF gains
+        for (my_pixel, (&other_pixel, &other_dirty)) in self
+            .pixel_data
+            .iter_mut()
+            .zip(other.pixel_data.iter().zip(other.pixels_dirty.iter()))
+        {
+            if other_dirty {
+                *my_pixel = blend_pixels(RGBAPixel(*my_pixel), RGBAPixel(other_pixel)).0;
             }
         }
     }

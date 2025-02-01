@@ -8,7 +8,7 @@ use monoio::{
 };
 
 use crate::core::{
-    image::{Coord, PixelflutImage, RGBAPixel, Timestamp},
+    image::{Coord, PixelflutImage, RGBAPixel},
     state::PixelflutIOWorkerState,
 };
 
@@ -186,10 +186,6 @@ impl PixelflutClient {
                     abs_x,
                     abs_y,
                     pixel,
-                    Instant::now()
-                        .duration_since(self.worker.global_config.start_time)
-                        // FIXME: this is unsound/not exactly elegant (maybe get the timer only at the start of request inbound?)
-                        .as_nanos() as Timestamp,
                 );
             }
             PixelflutCommand::Offset { x, y } => {
