@@ -1,0 +1,16 @@
+[package]
+name = "pixelflut_monoio"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+monoio = "0.2.4"
+
+winit = "0.29.10"
+softbuffer = "0.4.6"
+
+toml = "0.8.19"
+serde = { version = "1.0.210", features = ["derive"] }
+
+# serde = { version = "1.0.196", features = ["derive"] }
+# toml = "0.8.10"
