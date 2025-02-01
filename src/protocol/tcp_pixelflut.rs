@@ -126,7 +126,7 @@ fn parse_pixelflut_request(line: &[u8]) -> Option<PixelflutCommand> {
             pixel: r_rgba,
         })
     } else if subcommand == b"SIZE" {
-        Some(PixelflutCommand::Help)
+        Some(PixelflutCommand::Size)
     } else if subcommand == b"HELP" {
         Some(PixelflutCommand::Help)
     } else if subcommand == b"OFFSET" {

@@ -23,7 +23,7 @@ impl RGBAPixel {
 
 pub fn blend_pixels(a: RGBAPixel, b: RGBAPixel) -> RGBAPixel {
     // FIXME: alpha-blending (b)
-    a
+    b
 }
 
 pub type Timestamp = u64;
@@ -128,9 +128,9 @@ impl PixelflutTripleBuffer {
         loop {
             // We don't care about visibility yet, only at the CAS side
             let old_conf = self.buffer_indices.load(Ordering::Relaxed);
-            let mut cur_conf: [u8; 4] = old_conf.to_le_bytes();
+            let mut cur_conf: [u8; 4] = old_conf.to_ne_bytes();
             (cur_conf[0], cur_conf[1]) = (cur_conf[1], cur_conf[0]);
-            let new_conf = u32::from_be_bytes(cur_conf);
+            let new_conf = u32::from_ne_bytes(cur_conf);
 
             if self
                 .buffer_indices
@@ -161,6 +161,7 @@ impl PixelflutTripleBuffer {
     }
 
     // TODO: We can split this into two safe data structures that are not sync to be not-unsafe+sound
+    // I.e. there is a Producer (&mut self) + Consumer(&self) -> can then be shared using e.g. a Cell
     pub unsafe fn producer_buffer(&self) -> &mut PixelflutImage {
         // We "acquired" changes from the other thread at the swap
         // FIXME: this might make the data-structure unsound when moving readers/writers

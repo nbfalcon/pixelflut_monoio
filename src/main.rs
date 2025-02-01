@@ -4,6 +4,7 @@ pub mod frontend;
 pub mod protocol;
 
 use core::{config::Config, game::PixelflutGame, state::PixelflutIOWorkerState};
+use frontend::winit::winit_window_loop;
 use monoio::{net::TcpListener, RuntimeBuilder};
 use protocol::tcp_pixelflut::{io_task, PixelflutClient};
 use std::io;
@@ -18,14 +19,14 @@ async fn tcp_listener(config: Config, worker: &'static PixelflutIOWorkerState) -
     }
 }
 
-fn io_thread(thread: usize, config: &Config, game: &'static PixelflutGame) {
+fn io_thread(my_thread: &'static PixelflutIOWorkerState, config: Config) {
     let mut runtime = RuntimeBuilder::<monoio::FusionDriver>::new()
-        .with_entries(65536)
+        .with_entries(256)
         .enable_timer()
         .build()
         .expect("Failed to initialize runtime");
     runtime
-        .block_on(tcp_listener(config.clone(), game.for_worker(0)))
+        .block_on(tcp_listener(config.clone(), my_thread))
         .expect("Failed to spawn listener");
 }
 
@@ -38,9 +39,17 @@ fn main() {
         image_height: 720,
     };
 
-    let io = std::thread::spawn(move || {
-        let game = PixelflutGame::new(&config);
-        io_thread(0, &config, game);
+    let game = PixelflutGame::new(&config);
+    let io = std::thread::spawn({
+        // TODO: There has to be a cleaner way
+        let config2 = config.clone();
+        let iostate = game.common().for_worker(0);
+        move || {
+            io_thread(iostate, config2);
+        }
     });
+
+    winit_window_loop(&config, game);
+
     io.join().unwrap();
 }

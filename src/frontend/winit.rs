@@ -2,12 +2,13 @@ use crate::core::{config::Config, game::PixelflutGame};
 use std::{cmp::min, num::NonZeroU32};
 use winit::{dpi::PhysicalSize, event::Event, event_loop::EventLoopBuilder};
 
-pub fn window_loop(config: &Config, game: &mut PixelflutGame) {
+pub fn winit_window_loop(config: &Config, game: &mut PixelflutGame) {
     let event_loop = EventLoopBuilder::new()
         .build()
         .expect("Failed to init event loop");
     let window = winit::window::WindowBuilder::new()
         .with_inner_size(PhysicalSize::new(config.image_width, config.image_height))
+        .with_title("Pixelflut (Monoio <3)")
         .build(&event_loop)
         .expect("Failed to create window");
     let window_ctx = softbuffer::Context::new(&window).expect("Failed to initialize softbuffer");
@@ -42,6 +43,7 @@ pub fn window_loop(config: &Config, game: &mut PixelflutGame) {
                 };
                 for y in 0..min(current_image.height, window_height) {
                     for x in 0..min(current_image.width, window_width) {
+                        // FIXME: is this cast sound?
                         let i_buffer = window_width * y + x;
                         buffer[i_buffer as usize] = current_image.get_pixel(x, y).into_rgba();
                     }
