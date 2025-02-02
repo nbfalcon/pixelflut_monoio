@@ -5,22 +5,24 @@ use std::{
 
 use bit_set::BitSet;
 
-pub struct RGBAPixel(u32);
+#[repr(align(4))]
+#[derive(Default, Clone, Copy)]
+pub struct RGBAPixel([u8; 4]);
 
 impl RGBAPixel {
     pub fn new_rgb(r: u8, g: u8, b: u8) -> Self {
         // FIXME: little-endian assumption
-        Self(u32::from_le_bytes([r, g, b, 0]))
+        Self([r, g, b, 0])
     }
 
     // FIXME: proper alpha blending
     pub fn new_rgba(r: u8, g: u8, b: u8, a: u8) -> Self {
-        Self(u32::from_le_bytes([r, g, b, 0]))
+        Self([r, g, b, 0])
     }
 
     // FIXME: decide on representation
     pub fn into_rgba(&self) -> u32 {
-        self.0
+        u32::from_le_bytes(self.0)
     }
 }
 
@@ -32,7 +34,7 @@ pub struct PixelflutImage {
 
     // Two arrays of [height][width] (i.e. row-major)
     // TODO: Maybe we could cook something up with MaybeUninit
-    pixel_data: Box<[u32]>,
+    pixel_data: Box<[RGBAPixel]>,
     pixels_dirty: BitSet, // TODO: Maybe replace with fixed bit_set
 }
 
@@ -42,7 +44,7 @@ impl PixelflutImage {
         PixelflutImage {
             height,
             width,
-            pixel_data: vec![0; total].into_boxed_slice(),
+            pixel_data: vec![RGBAPixel::default(); total].into_boxed_slice(),
             pixels_dirty: BitSet::with_capacity(total),
         }
     }
@@ -59,13 +61,13 @@ impl PixelflutImage {
     // FIMXE: the alpha semantics are completely borked
     pub fn set_pixel(&mut self, px: Coord, py: Coord, pixel: RGBAPixel) {
         let i = self.index(px, py);
-        self.pixel_data[i] = pixel.0;
+        self.pixel_data[i] = pixel;
         self.pixels_dirty.insert(i);
     }
 
     pub fn get_pixel(&self, px: Coord, py: Coord) -> RGBAPixel {
         let i = self.index(px, py);
-        RGBAPixel(self.pixel_data[i])
+        self.pixel_data[i]
     }
 
     pub fn combine_with(&mut self, other: &mut PixelflutImage) {
@@ -78,7 +80,7 @@ impl PixelflutImage {
                 self.pixel_data[i] = other.pixel_data[i];
             }
         }
-        
+
         other.pixels_dirty.clear();
     }
 }
