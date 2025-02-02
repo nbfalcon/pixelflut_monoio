@@ -3,6 +3,8 @@ use std::{
     sync::atomic::{AtomicU32, Ordering},
 };
 
+use bit_set::BitSet;
+
 pub struct RGBAPixel(u32);
 
 impl RGBAPixel {
@@ -11,19 +13,15 @@ impl RGBAPixel {
         Self(u32::from_le_bytes([r, g, b, 0]))
     }
 
+    // FIXME: proper alpha blending
     pub fn new_rgba(r: u8, g: u8, b: u8, a: u8) -> Self {
-        Self(u32::from_le_bytes([r, g, b, a]))
+        Self(u32::from_le_bytes([r, g, b, 0]))
     }
 
     // FIXME: decide on representation
     pub fn into_rgba(&self) -> u32 {
         self.0
     }
-}
-
-pub fn blend_pixels(a: RGBAPixel, b: RGBAPixel) -> RGBAPixel {
-    // FIXME: alpha-blending (b)
-    b
 }
 
 pub type Coord = u32;
@@ -33,8 +31,9 @@ pub struct PixelflutImage {
     pub width: Coord,
 
     // Two arrays of [height][width] (i.e. row-major)
+    // TODO: Maybe we could cook something up with MaybeUninit
     pixel_data: Box<[u32]>,
-    pixels_dirty: Box<[bool]>, // FIXME: use a bitset when we have internet
+    pixels_dirty: BitSet, // TODO: Maybe replace with fixed bit_set
 }
 
 impl PixelflutImage {
@@ -44,7 +43,7 @@ impl PixelflutImage {
             height,
             width,
             pixel_data: vec![0; total].into_boxed_slice(),
-            pixels_dirty: vec![false; total].into_boxed_slice(),
+            pixels_dirty: BitSet::with_capacity(total),
         }
     }
 
@@ -61,7 +60,7 @@ impl PixelflutImage {
     pub fn set_pixel(&mut self, px: Coord, py: Coord, pixel: RGBAPixel) {
         let i = self.index(px, py);
         self.pixel_data[i] = pixel.0;
-        self.pixels_dirty[i] = true;
+        self.pixels_dirty.insert(i);
     }
 
     pub fn get_pixel(&self, px: Coord, py: Coord) -> RGBAPixel {
@@ -69,20 +68,18 @@ impl PixelflutImage {
         RGBAPixel(self.pixel_data[i])
     }
 
-    pub fn combine_with(&mut self, other: &PixelflutImage) {
+    pub fn combine_with(&mut self, other: &mut PixelflutImage) {
         assert!(other.width == self.width && other.height == self.height);
         assert!(other.pixel_data.len() == self.pixel_data.len());
 
-        // FIXME: benchmark dis. Maybe we should just manually use SIMD and get infinite PERF gains
-        for (my_pixel, (&other_pixel, &other_dirty)) in self
-            .pixel_data
-            .iter_mut()
-            .zip(other.pixel_data.iter().zip(other.pixels_dirty.iter()))
-        {
-            if other_dirty {
-                *my_pixel = blend_pixels(RGBAPixel(*my_pixel), RGBAPixel(other_pixel)).0;
+        for i in 0..self.pixel_data.len() {
+            if other.pixels_dirty.contains(i) {
+                // FIXME: correctly handle alpha-transparency
+                self.pixel_data[i] = other.pixel_data[i];
             }
         }
+        
+        other.pixels_dirty.clear();
     }
 }
 

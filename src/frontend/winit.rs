@@ -1,4 +1,4 @@
-use crate::core::{config::Config, game::PixelflutGame};
+    use crate::core::{config::Config, game::PixelflutGame};
 use std::{cmp::min, num::NonZeroU32};
 use winit::{dpi::PhysicalSize, event::Event, event_loop::EventLoopBuilder};
 
@@ -8,7 +8,7 @@ pub fn winit_window_loop(config: &Config, game: &mut PixelflutGame) {
         .expect("Failed to init event loop");
     let window = winit::window::WindowBuilder::new()
         .with_inner_size(PhysicalSize::new(config.image_width, config.image_height))
-        .with_title("Pixelflut (Monoio <3)")
+        .with_title("Pixelflut (Monoio)")
         .build(&event_loop)
         .expect("Failed to create window");
     let window_ctx = softbuffer::Context::new(&window).expect("Failed to initialize softbuffer");
@@ -36,6 +36,8 @@ pub fn winit_window_loop(config: &Config, game: &mut PixelflutGame) {
                     .expect("Resize Surface??");
                 let mut buffer = window_surface.buffer_mut().unwrap();
 
+                // TODO: maybe handle the fast path where width == width && height == height? Then we denegerate to memcpy. Maybe we can also just use gstreamer
+                // and be done with it.
                 // 2. Acquire an image from pixelflut
                 let current_image = {
                     game.combine_all();

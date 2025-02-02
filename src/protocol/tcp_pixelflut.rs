@@ -1,10 +1,11 @@
+use core::str;
 use std::io;
 
+use arrayvec::ArrayVec;
 use monoio::{
     buf::IoBuf,
     io::{AsyncReadRent, AsyncWriteRent},
     net::TcpStream,
-    time::Instant,
 };
 
 use crate::core::{
@@ -36,6 +37,8 @@ fn parse_hex1(hx_char: u8) -> Option<u8> {
         Some(hx_char - b'0')
     } else if hx_char >= b'A' && hx_char <= b'F' {
         Some(hx_char - b'A' + 10u8)
+    } else if hx_char >= b'a' && hx_char <= b'f' {
+        Some(hx_char - b'a' + 10u8)
     } else {
         None
     }
@@ -182,23 +185,24 @@ impl PixelflutClient {
                     return Ok(());
                 };
 
-                image.set_pixel(
-                    abs_x,
-                    abs_y,
-                    pixel,
-                );
+                image.set_pixel(abs_x, abs_y, pixel);
             }
             PixelflutCommand::Offset { x, y } => {
                 self.base_x = x;
                 self.base_y = y;
-            }
+            } // FIXME: better error messages
+              // 1. Handle the case of unknown command better
+              // 2. "Expect no more arguments"
+              // 3. A Use result instead of hacking on top Option<>?
         })
     }
 
     pub async fn dispatch_line(&mut self, line: &[u8]) -> io::Result<()> {
         let Some(cmd) = parse_pixelflut_request(line) else {
-            self.respond_error("error: syntax error or unknown command\r\n")
-                .await?;
+            let line_s = str::from_utf8(line).unwrap(); // FIXME: this is wrong (maybe we can do utf8 conversion that doesn't panic attacker-controlled?)
+            let errmsg = format!("error: syntax error or unknown command '{line_s}'\r\n");
+            eprintln!("{errmsg}");
+            self.respond_error(errmsg.into_bytes()).await?;
             return Ok(());
         };
 
@@ -208,42 +212,64 @@ impl PixelflutClient {
     }
 }
 
-pub async fn io_task(
-    mut client: PixelflutClient,
-) -> io::Result<()> {
+pub async fn io_task(mut client: PixelflutClient) -> io::Result<()> {
+    let mut linebuf = ArrayVec::<u8, 128>::new();
     let mut rxbuf: Vec<u8> = Vec::with_capacity(4096);
-    let mut res;
     loop {
+        let res;
         (res, rxbuf) = client.stream.read(rxbuf).await;
         res?;
 
-        let mut last_newline = 0;
-        for newline in rxbuf
-            .iter()
-            .enumerate()
-            .filter(|(_i, &b)| b == b'\n')
-            .map(|(i, _b)| i)
-        {
-            let mut newline2 = newline;
-            if newline2 > 0 && rxbuf[newline2 - 1] == b'\r' {
-                newline2 -= 1;
-            }
-            let line = &rxbuf[last_newline..newline2];
-            client.dispatch_line(line).await?;
+        let mut split = rxbuf
+            .split(|&c| c == b'\n')
+            .map(|mut l| {
+                // Remove carriage return
+                if let Some((b'\r', rest)) = l.split_last() {
+                    l = rest;
+                }
+                l
+            })
+            .peekable();
 
-            last_newline = newline + 1;
+        let first_segment = split.next().unwrap();
+        if linebuf.try_extend_from_slice(first_segment).is_ok() {
+            client.dispatch_line(linebuf.as_slice()).await?;
+            linebuf.clear();
+        } else {
+            client
+                .respond_error("error: line too long (discarding)")
+                .await?;
         }
-        rxbuf.drain(..last_newline);
+        while let Some(line) = split.next() {
+            if line.len() > linebuf.capacity() {
+                client
+                    .respond_error("error: line too long (discarding)")
+                    .await?;
+                continue;
+            }
 
-        // Maximum bytes/line
-        if rxbuf.len() > 128 {
-            // FIXME: maybe re-sync until \r\n? \n?
-            client.respond_error("error: request line too long (discarded)").await?;
-            rxbuf.clear();
+            if split.peek().is_some() {
+                client.dispatch_line(line).await?;
+            } else {
+                // Last element
+                linebuf.clear();
+                linebuf.try_extend_from_slice(line).unwrap();
+            }
         }
 
         // FIXME: this is hacky and misplaced, but it seems to work?
         // FIXME: this should be done once every *1ms*, not this often
         client.worker.my_present_queue.swap_present_side();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{parse_pixelflut_request, parse_rgba};
+
+    #[test]
+    fn test_parsers() {
+        parse_rgba(b"ffff00").unwrap();
+        parse_pixelflut_request(b"PX 24 50 ffff00").unwrap();
     }
 }

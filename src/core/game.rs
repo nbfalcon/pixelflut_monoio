@@ -24,7 +24,6 @@ pub struct PixelflutGame {
 impl PixelflutGame {
     pub fn new(config: &Config) -> &'static mut PixelflutGame {
         let global_config = PixelflutGlobalConfig {
-            start_time: Instant::now(),
             width: config.image_width,
             height: config.image_height,
         };
@@ -43,7 +42,7 @@ impl PixelflutGame {
             complete_image: PixelflutImage::new_with(config.image_width, config.image_height),
             common: Box::leak(game_common),
         });
-        // FIXME: implement proper shutdown logic in a way that would make valgrind happy
+        // TODO: implement proper shutdown logic in a way that would make valgrind happy
         Box::leak(game_box)
     }
 
