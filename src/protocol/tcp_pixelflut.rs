@@ -218,7 +218,9 @@ pub async fn io_task(mut client: PixelflutClient) -> io::Result<()> {
     loop {
         let res;
         (res, rxbuf) = client.stream.read(rxbuf).await;
-        res?;
+        if res? == 0 {
+            break; // Handle EOF: https://github.com/bytedance/monoio/blob/master/examples/echo.rs
+        }
 
         let mut split = rxbuf
             .split(|&c| c == b'\n')
@@ -256,11 +258,9 @@ pub async fn io_task(mut client: PixelflutClient) -> io::Result<()> {
                 linebuf.try_extend_from_slice(line).unwrap();
             }
         }
-
-        // FIXME: this is hacky and misplaced, but it seems to work?
-        // FIXME: this should be done once every *1ms*, not this often
-        client.worker.my_present_queue.swap_present_side();
     }
+
+    Ok(())
 }
 
 #[cfg(test)]

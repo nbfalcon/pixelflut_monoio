@@ -7,12 +7,20 @@ use core::{config::Config, game::PixelflutGame, state::PixelflutIOWorkerState};
 use frontend::winit::winit_window_loop;
 use monoio::{net::TcpListener, RuntimeBuilder};
 use protocol::tcp_pixelflut::{io_task, PixelflutClient};
-use std::io;
+use std::{io, time::Duration};
+
+async fn timer_image_flipper(worker: &'static PixelflutIOWorkerState) {
+    loop {
+        worker.my_present_queue.swap_present_side();
+        monoio::time::sleep(Duration::from_millis(6)).await;
+    }
+}
 
 async fn tcp_listener(config: Config, worker: &'static PixelflutIOWorkerState) -> io::Result<()> {
+    monoio::spawn(timer_image_flipper(worker));
+
     // FIXME: config.addresses
     let listen = TcpListener::bind("127.0.0.1:4000")?;
-
     loop {
         let (socket, _addr) = listen.accept().await?;
         monoio::spawn(io_task(PixelflutClient::new(socket, worker)));

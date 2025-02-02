@@ -30,4 +30,4 @@ def worm(x, y, n, r, g, b):
         y += random.randint(0, 2) - 1
         n -= 1
 
-rect(0, 0, 128, 128, 0xFF, 0xFF, 0);
+rect(0, 0, 128, 128, 0xFF, 0, 0);
