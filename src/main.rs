@@ -3,22 +3,13 @@ pub mod core;
 pub mod frontend;
 pub mod protocol;
 
-use core::{config::Config, game::PixelflutGame, state::PixelflutIOWorkerState};
+use core::{config::Config, game::PixelflutGame, state::PixelflutThreadState};
 use frontend::winit::winit_window_loop;
 use monoio::{net::TcpListener, RuntimeBuilder};
 use protocol::tcp_pixelflut::{io_task, PixelflutClient};
-use std::{io, time::Duration};
+use std::io;
 
-async fn timer_image_flipper(worker: &'static PixelflutIOWorkerState) {
-    loop {
-        worker.my_present_queue.swap_present_side();
-        monoio::time::sleep(Duration::from_millis(6)).await;
-    }
-}
-
-async fn tcp_listener(config: Config, worker: &'static PixelflutIOWorkerState) -> io::Result<()> {
-    monoio::spawn(timer_image_flipper(worker));
-
+async fn tcp_listener(config: Config, worker: &'static PixelflutThreadState) -> io::Result<()> {
     // FIXME: config.addresses
     let listen = TcpListener::bind("127.0.0.1:4000")?;
     loop {
@@ -27,7 +18,7 @@ async fn tcp_listener(config: Config, worker: &'static PixelflutIOWorkerState) -
     }
 }
 
-fn io_thread(my_thread: &'static PixelflutIOWorkerState, config: Config) {
+fn io_thread(my_thread: &'static PixelflutThreadState, config: Config) {
     let mut runtime = RuntimeBuilder::<monoio::FusionDriver>::new()
         .with_entries(256)
         .enable_timer()
@@ -51,7 +42,7 @@ fn main() {
     let io = std::thread::spawn({
         // TODO: There has to be a cleaner way
         let config2 = config.clone();
-        let iostate = game.common().for_worker(0);
+        let iostate = game.for_worker(0);
         move || {
             io_thread(iostate, config2);
         }

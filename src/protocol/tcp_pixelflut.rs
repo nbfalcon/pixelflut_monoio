@@ -10,19 +10,19 @@ use monoio::{
 
 use crate::core::{
     image::{Coord, PixelflutImage, RGBAPixel},
-    state::PixelflutIOWorkerState,
+    state::PixelflutThreadState,
 };
 
 pub struct PixelflutClient {
     stream: TcpStream,
-    worker: &'static PixelflutIOWorkerState,
+    worker: &'static PixelflutThreadState,
 
     base_x: Coord,
     base_y: Coord,
 }
 
 impl PixelflutClient {
-    pub fn new(stream: TcpStream, worker: &'static PixelflutIOWorkerState) -> PixelflutClient {
+    pub fn new(stream: TcpStream, worker: &'static PixelflutThreadState) -> PixelflutClient {
         Self {
             stream,
             worker,
@@ -143,6 +143,22 @@ fn parse_pixelflut_request(line: &[u8]) -> Option<PixelflutCommand> {
     }
 }
 
+const HELP_TEXT: &str =
+    "Pixelflut Server by Nikita Bloshchanevich (https://github.com/nbfalcon/pixelflut_monoio)
+
+Accepted Commands:
+- OFFSET X Y: configure the offset for all subsequent PX commands (X and Y are added to X Y from PX)
+- PX X Y <hex-color code: RGB | RRGGBB | RRGGBBAA>: set pixel at X, Y to color
+- SIZE: return the SIZE of the board (response is a line SIZE <width> <height>)
+
+All numbers are in decimal (except color codes).
+
+Examples:
+PX 10 10 FFF
+PX 10 11 ffaa00
+PX 10 12 ffaa00ff\r\n";
+// USE \r\n to terminate the message. This is a bit hacky, but this way, the client can always just assume reading until \r\n for respones.
+
 impl PixelflutClient {
     async fn respond<T: IoBuf>(&mut self, s: T) -> io::Result<()> {
         self.stream.write(s).await.0?;
@@ -167,7 +183,7 @@ impl PixelflutClient {
     pub async fn execute_command(&mut self, cmd: PixelflutCommand) -> Result<(), io::Error> {
         Ok(match cmd {
             PixelflutCommand::Help => {
-                self.respond("This is pixelflut (Rust-version) by Nikita\r\n")
+                self.respond(HELP_TEXT)
                     .await?;
             }
             PixelflutCommand::Size => {
@@ -179,12 +195,13 @@ impl PixelflutClient {
                     .0?;
             }
             PixelflutCommand::SetPixel { x, y, pixel } => {
-                let image = unsafe { self.worker.my_present_queue.producer_buffer() };
+                let image = &self.worker.global_state.image;
                 let Some((abs_x, abs_y)) = self.boundscheck(x, y, image) else {
                     self.respond_error("error: pixel out of bounds").await?;
                     return Ok(());
                 };
 
+                // FIXME: blend in CAS here
                 image.set_pixel(abs_x, abs_y, pixel);
             }
             PixelflutCommand::Offset { x, y } => {

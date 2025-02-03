@@ -2,7 +2,7 @@
 use std::{cmp::min, num::NonZeroU32};
 use winit::{dpi::PhysicalSize, event::Event, event_loop::EventLoopBuilder};
 
-pub fn winit_window_loop(config: &Config, game: &mut PixelflutGame) {
+pub fn winit_window_loop(config: &Config, game: &'static PixelflutGame) {
     let event_loop = EventLoopBuilder::new()
         .build()
         .expect("Failed to init event loop");
@@ -39,10 +39,7 @@ pub fn winit_window_loop(config: &Config, game: &mut PixelflutGame) {
                 // TODO: maybe handle the fast path where width == width && height == height? Then we denegerate to memcpy. Maybe we can also just use gstreamer
                 // and be done with it.
                 // 2. Acquire an image from pixelflut
-                let current_image = {
-                    game.combine_all();
-                    game.image()
-                };
+                let current_image = game.image();
                 for y in 0..min(current_image.height, window_height) {
                     for x in 0..min(current_image.width, window_width) {
                         // FIXME: is this cast sound?
