@@ -229,7 +229,7 @@ impl PixelflutClient {
     }
 }
 
-pub async fn io_task(mut client: PixelflutClient) -> io::Result<()> {
+pub async fn tcp_pixelflut_handler(mut client: PixelflutClient) -> io::Result<()> {
     let mut linebuf = ArrayVec::<u8, 128>::new();
     let mut rxbuf: Vec<u8> = Vec::with_capacity(4096);
     loop {
