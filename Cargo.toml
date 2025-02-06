@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-monoio = "0.2.4"
+monoio = { version = "0.2.4", features = ["sync"] }
 
 winit = "0.29.10"
 softbuffer = "0.4.6"

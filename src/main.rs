@@ -65,8 +65,10 @@ async fn tcp_listener<A: ToSocketAddrs + Display>(addr: A, server: ServerCtx) ->
     // FIXME: config.addresses
     let mut listen = tcp_listeners(addr);
     while let Some((socket, _addr)) = listen.next().await {
+        // println!("Socket!");
         let socket = socket.into_raw_fd();
         if !server.spawn(AcceptedClient { stream: socket }).await {
+            // println!("Die");
             break;
         }
     }
@@ -77,10 +79,14 @@ async fn channel_spawner(
     channel: async_channel::Receiver<AcceptedClient>,
     worker: &'static PixelflutThreadState,
 ) {
+    // println!("Receiver!");
     while let Ok(message) = channel.recv().await {
         let stream =
             TcpStream::from_std(unsafe { std::net::TcpStream::from_raw_fd(message.stream) })
                 .unwrap();
+        // let current = thread::current();
+        // let tid = current.name().unwrap_or("???");
+        // println!("Spawning on {tid}");
         monoio::spawn(tcp_pixelflut_handler(PixelflutClient::new(stream, worker)));
     }
 }
@@ -160,9 +166,8 @@ fn setup_server(config: Config) -> (&'static PixelflutGame, Vec<thread::JoinHand
 
 fn main() {
     // FIXME: read from TOML
-    // FIXME: make num_threads configurable
     let config = Config {
-        num_io_threads: 1,
+        num_io_threads: 4,
         image_width: 1280,
         image_height: 720,
         listen_addr: "127.0.0.1:4000".to_owned(),
