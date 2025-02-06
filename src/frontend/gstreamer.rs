@@ -8,8 +8,6 @@ use gstreamer_app::AppSrcCallbacks;
 pub fn gstreamer_pipeline(game: &'static PixelflutGame) {
     gstreamer::init().unwrap();
 
-    let main = glib::MainLoop::new(None, true);
-
     let width = game.image().width;
     let height = game.image().height;
 
@@ -48,5 +46,4 @@ pub fn gstreamer_pipeline(game: &'static PixelflutGame) {
     );
 
     pipeline.set_state(gstreamer::State::Playing).unwrap();
-    main.run();
 }
