@@ -1,4 +1,8 @@
-use std::sync::atomic::{AtomicU32, Ordering};
+use core::slice::{self};
+use std::{
+    ptr,
+    sync::atomic::{AtomicU32, Ordering},
+};
 
 #[repr(align(4))]
 #[derive(Default, Clone, Copy)]
@@ -64,5 +68,21 @@ impl PixelflutImage {
     pub fn get_pixel(&self, px: Coord, py: Coord) -> RGBAPixel {
         let i = self.index(px, py);
         RGBAPixel::from_rgba(self.pixel_data[i].load(Ordering::Relaxed))
+    }
+
+    pub fn scanout_size(&self) -> usize {
+        self.pixel_data.len() * size_of::<AtomicU32>()
+    }
+
+    pub fn scanout(&self, dest: &mut [u8]) {
+        assert!(dest.len() >= self.scanout_size());
+        unsafe {
+            // We need to do this via pointers, since AtomicU32 has interior mutability, and we cannot "soundly" cast it into &[u8]
+            ptr::copy_nonoverlapping(
+                self.pixel_data.as_ptr() as *const u8,
+                dest.as_mut_ptr(),
+                self.scanout_size(),
+            );
+        }
     }
 }

@@ -5,7 +5,7 @@ pub mod frontend;
 pub mod protocol;
 
 use core::{config::Config, game::PixelflutGame, state::PixelflutThreadState};
-use frontend::winit::winit_window_loop;
+use frontend::{gstreamer::gstreamer_pipeline, winit::winit_window_loop};
 use futures::StreamExt;
 use monoio::{
     join, net::{TcpListener, TcpStream}, FusionDriver, RuntimeBuilder
@@ -162,7 +162,7 @@ fn main() {
     // FIXME: read from TOML
     // FIXME: make num_threads configurable
     let config = Config {
-        num_io_threads: 4,
+        num_io_threads: 1,
         image_width: 1280,
         image_height: 720,
         listen_addr: "127.0.0.1:4000".to_owned(),
@@ -170,7 +170,8 @@ fn main() {
 
     let (game, join) = setup_server(config.clone());
 
-    winit_window_loop(&config, game);
+    // winit_window_loop(&config, game);
+    gstreamer_pipeline(game);
 
     for join_h in join {
         join_h.join().unwrap();
