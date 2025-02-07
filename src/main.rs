@@ -5,14 +5,20 @@ pub mod frontend;
 pub mod protocol;
 
 use core::{config::Config, game::PixelflutGame, state::PixelflutThreadState};
-use frontend::{gstreamer::gstreamer_pipeline, winit::winit_window_loop};
+use frontend::gstreamer::gstreamer_pipeline;
 use futures::StreamExt;
 use monoio::{
-    join, net::{TcpListener, TcpStream}, FusionDriver, RuntimeBuilder
+    join,
+    net::{TcpListener, TcpStream},
+    FusionDriver, RuntimeBuilder,
 };
 use protocol::tcp_pixelflut::{tcp_pixelflut_handler, PixelflutClient};
 use std::{
-    fmt::Display, io, net::{SocketAddr, ToSocketAddrs}, os::fd::{FromRawFd, IntoRawFd, RawFd}, thread
+    fmt::Display,
+    io,
+    net::{SocketAddr, ToSocketAddrs},
+    os::fd::{FromRawFd, IntoRawFd, RawFd},
+    thread,
 };
 
 struct AcceptedClient {
@@ -99,7 +105,8 @@ async fn main_thread(
 ) {
     let (r1, _r2) = join!(
         monoio::spawn(tcp_listener(config.listen_addr, server)),
-        monoio::spawn(channel_spawner(channel, worker)));
+        monoio::spawn(channel_spawner(channel, worker))
+    );
     r1.unwrap();
 }
 
@@ -157,7 +164,7 @@ fn setup_server(config: Config) -> (&'static PixelflutGame, Vec<thread::JoinHand
                         game.for_worker(thread_id),
                     ));
                 })
-                .expect("Spawn IO Thread")
+                .expect("Spawn IO Thread"),
         );
     }
 
@@ -171,12 +178,15 @@ fn main() {
         image_width: 1280,
         image_height: 720,
         listen_addr: "127.0.0.1:4000".to_owned(),
+        gst_window: true,
+        // record_to_file: None,
+        record_to_file: Some("meow.mkv".to_string()),
     };
 
     let (game, join) = setup_server(config.clone());
 
     // winit_window_loop(&config, game);
-    gstreamer_pipeline(game);
+    gstreamer_pipeline(&config, game);
 
     for join_h in join {
         join_h.join().unwrap();
