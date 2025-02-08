@@ -15,7 +15,7 @@ pub fn gstreamer_pipeline(config: &Config, game: &'static PixelflutGame) {
 
     let mainloop = glib::MainLoop::new(None, true);
 
-    let pipeline = gstreamer::parse::launch("appsrc do-timestamp=true is-live=true name=input ! videoconvert ! tee name=branch")
+    let pipeline = gstreamer::parse::launch("appsrc block=true do-timestamp=true is-live=true name=input ! videoconvert ! tee name=branch")
         .expect("Failed to create pipeline");
     let pipeline: gstreamer::Bin = pipeline.downcast().unwrap();
     bus_dispatcher(&pipeline);
