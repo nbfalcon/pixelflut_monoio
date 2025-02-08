@@ -15,7 +15,7 @@ pub fn gstreamer_pipeline(config: &Config, game: &'static PixelflutGame) {
 
     let mainloop = glib::MainLoop::new(None, true);
 
-    let pipeline = gstreamer::parse::launch("appsrc is-live=true name=input ! videoconvert ! tee name=branch")
+    let pipeline = gstreamer::parse::launch("appsrc do-timestamp=true is-live=true name=input ! videoconvert ! tee name=branch")
         .expect("Failed to create pipeline");
     let pipeline: gstreamer::Bin = pipeline.downcast().unwrap();
     bus_dispatcher(&pipeline);
@@ -33,7 +33,7 @@ pub fn gstreamer_pipeline(config: &Config, game: &'static PixelflutGame) {
             )
             .build(),
     ));
-    appsrc.set_stream_type(AppStreamType::Stream);
+    appsrc.set_stream_type(AppStreamType::Stream); // push-mode
     appsrc_handler(&appsrc, |appsrc| {
         println!("Meow");
         let buffer = scanout_image(game.image());
@@ -42,7 +42,7 @@ pub fn gstreamer_pipeline(config: &Config, game: &'static PixelflutGame) {
 
     if config.gst_window {
         let videobranch =
-            gstreamer::parse::bin_from_description("queue ! videoconvert ! autovideosink", true)
+            gstreamer::parse::bin_from_description("queue ! videoconvert ! autovideosink sync=false", true)
                 .expect("Display branch");
 
         pipeline.add(&videobranch).unwrap();
