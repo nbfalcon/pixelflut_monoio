@@ -68,7 +68,6 @@ fn tcp_listeners<A: ToSocketAddrs + Display>(
 }
 
 async fn tcp_listener<A: ToSocketAddrs + Display>(addr: A, server: ServerCtx) -> io::Result<()> {
-    // FIXME: config.addresses
     let mut listen = tcp_listeners(addr);
     while let Some((socket, _addr)) = listen.next().await {
         // println!("Socket!");

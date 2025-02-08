@@ -216,7 +216,7 @@ impl PixelflutClient {
 
     pub async fn dispatch_line(&mut self, line: &[u8]) -> io::Result<()> {
         let Some(cmd) = parse_pixelflut_request(line) else {
-            let line_s = str::from_utf8(line).unwrap(); // FIXME: this is wrong (maybe we can do utf8 conversion that doesn't panic attacker-controlled?)
+            let line_s = str::from_utf8(line).unwrap_or("<invalid UTF-8>");
             let errmsg = format!("error: syntax error or unknown command '{line_s}'\r\n");
             eprintln!("{errmsg}");
             self.respond_error(errmsg.into_bytes()).await?;

@@ -12,14 +12,13 @@ use std::{
 
 pub fn gstreamer_pipeline(config: &Config, game: &'static PixelflutGame) {
     gstreamer::init().unwrap();
-
     let mainloop = glib::MainLoop::new(None, true);
 
     let pipeline = gstreamer::parse::launch("appsrc block=true do-timestamp=true is-live=true name=input ! videoconvert ! tee name=branch")
         .expect("Failed to create pipeline");
     let pipeline: gstreamer::Bin = pipeline.downcast().unwrap();
     bus_dispatcher(&pipeline);
-    let appsrc: gstreamer_app::AppSrc = pipeline.by_name("input").unwrap().downcast().unwrap();
+    let appsrc: AppSrc = pipeline.by_name("input").unwrap().downcast().unwrap();
     let tee = pipeline.by_name("branch").unwrap();
 
     appsrc.set_caps(Some(
